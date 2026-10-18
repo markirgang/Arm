@@ -1,0 +1,814 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>6-DOF Robot Arm 3D Control & Hardware Calibration Workbench</title>
+    <link rel="stylesheet" href="style.css?v=300">
+    <script src="lib/three.min.js"></script>
+    <script src="lib/OrbitControls.js"></script>
+</head>
+<body>
+    <!-- Top Header & Nav Tabs -->
+    <header class="app-header">
+        <div class="logo-container">
+            <div class="logo-icon">6</div>
+            <div class="app-title">6-DOF ROBOT ARM CONTROL CENTER</div>
+        </div>
+
+        <nav class="top-nav-tabs">
+            <button class="nav-tab-btn active" data-view="viewAnimation">🎮 3D Control</button>
+            <button class="nav-tab-btn" data-view="viewSettings">⚙️ Settings & HW</button>
+            <button class="nav-tab-btn" data-view="viewCalibration">🔧 Servo Calibration</button>
+            <button class="nav-tab-btn" data-view="viewWiring">🔌 Wiring Schematic</button>
+            <button class="nav-tab-btn" data-view="viewInstructions">📖 Guide & Instructions</button>
+        </nav>
+
+        <div class="header-status">
+            <div class="status-badge">
+                <span class="status-dot"></span>
+                <span id="statusText">ONLINE</span>
+            </div>
+            <button class="btn-preset primary" id="btnExportScript">Export Python Code</button>
+        </div>
+    </header>
+
+    <!-- VIEW 1: 3D ANIMATION & REALTIME CONTROL -->
+    <div class="view-screen active" id="viewAnimation">
+        <!-- Left Panel: 5-DOF Joint Direct Controls -->
+        <aside class="panel left">
+            <div class="panel-section">
+                <div class="section-title">🦾 6-DOF Joint Direct Angles</div>
+                
+                <div class="slider-control">
+                    <div class="slider-label"><span>J1: Base Rotation (Yaw)</span><span class="slider-val" id="valJ1">0°</span></div>
+                    <input type="range" id="slideJ1" min="-90" max="90" value="0">
+                </div>
+
+                <div class="slider-control">
+                    <div class="slider-label"><span>J2: Shoulder Angle (Pitch)</span><span class="slider-val" id="valJ2">30°</span></div>
+                    <input type="range" id="slideJ2" min="-90" max="90" value="30">
+                </div>
+
+                <div class="slider-control">
+                    <div class="slider-label"><span>J3: Elbow Angle (Pitch)</span><span class="slider-val" id="valJ3">45°</span></div>
+                    <input type="range" id="slideJ3" min="-135" max="135" value="45">
+                </div>
+
+                <div class="slider-control">
+                    <div class="slider-label"><span>J4: Wrist Tilt (Pitch)</span><span class="slider-val" id="valJ4">0°</span></div>
+                    <input type="range" id="slideJ4" min="-90" max="90" value="0">
+                </div>
+
+                <div class="slider-control">
+                    <div class="slider-label"><span>J5: Wrist Roll (Swivel)</span><span class="slider-val" id="valJ5">0°</span></div>
+                    <input type="range" id="slideJ5" min="-90" max="90" value="0">
+                </div>
+
+                <div class="slider-control">
+                    <div class="slider-label"><span>J6: Gripper Open / Close</span><span class="slider-val" id="valJ6">50%</span></div>
+                    <input type="range" id="slideJ6" min="0" max="100" value="50">
+                </div>
+
+                <button class="btn-preset" id="btnResetJoints" style="width: 100%; margin-top: 8px;">Reset Joint Angles</button>
+            </div>
+
+            <div class="panel-section">
+                <div class="section-title">📍 End-Effector 3D Target (FK / IK)</div>
+                <div class="joint-row"><span>Target X (Left/Right):</span><span id="eeX" style="font-weight:bold; color:var(--accent-cyan);">0 mm</span></div>
+                <div class="joint-row"><span>Target Y (Height):</span><span id="eeY" style="font-weight:bold; color:var(--accent-cyan);">210 mm</span></div>
+                <div class="joint-row"><span>Target Z (Reach):</span><span id="eeZ" style="font-weight:bold; color:var(--accent-cyan);">160 mm</span></div>
+            </div>
+        </aside>
+
+        <!-- Center Viewport Area -->
+        <main class="viewport-container">
+            <div id="viewport3d"></div>
+
+            <div class="viewport-toolbar">
+                <button class="tool-btn" id="btnResetCam">📷 Reset Camera</button>
+            </div>
+
+            <!-- D-Pad Arm Motion Overlay -->
+            <div class="dpad-overlay">
+                <div></div>
+                <button class="btn-dpad" id="btnShoulderUp" title="Shoulder Up">▲</button>
+                <div></div>
+                <button class="btn-dpad" id="btnBaseLeft" title="Turn Base Left">◄</button>
+                <button class="btn-dpad" id="btnStop" title="Stop Motion">■</button>
+                <button class="btn-dpad" id="btnBaseRight" title="Turn Base Right">►</button>
+                <button class="btn-dpad" id="btnClawOpen" title="Open Claw">👐</button>
+                <button class="btn-dpad" id="btnShoulderDown" title="Shoulder Down">▼</button>
+                <button class="btn-dpad" id="btnClawClose" title="Close Claw">✊</button>
+            </div>
+        </main>
+
+        <!-- Right Panel: Telemetry & Actions -->
+        <aside class="panel right">
+            <!-- Gemini Multimodal AI Panel -->
+            <div class="panel-section" id="geminiAiPanel">
+                <div class="section-title">
+                    <span>🤖 Gemini AI Multimodal Agent</span>
+                    <button class="tool-btn" id="btnApiKeySettings" style="padding:2px 6px;">🔑 Key</button>
+                </div>
+
+                <!-- API Key Input Modal Area -->
+                <div id="apiKeyBox" style="display: none; margin-bottom: 10px;">
+                    <input type="password" id="inputApiKey" placeholder="Enter Gemini API Key..." value="" 
+                           style="width:100%; padding:8px; border-radius:6px; border:1px solid var(--panel-border); background:#0f172a; color:#fff; font-size:0.8rem;">
+                    <button class="btn-preset primary" id="btnSaveApiKey" style="width:100%; margin-top:6px;">Save Key</button>
+                </div>
+
+                <!-- eMeet Pixy Webcam Live Preview -->
+                <div style="position:relative; width:100%; height:120px; background:#000; border-radius:8px; overflow:hidden; margin-bottom:8px; border:1px solid var(--panel-border);">
+                    <img id="camFeed" src="/api/camera/frame" alt="eMeet Pixy Camera Feed" style="width:100%; height:100%; object-fit:cover;">
+                    <div id="gestureBadge" style="position:absolute; bottom:6px; left:6px; background:rgba(0,0,0,0.7); color:var(--accent-cyan); font-size:0.7rem; padding:3px 8px; border-radius:4px; border:1px solid var(--accent-cyan);">
+                        Gesture: Idle
+                    </div>
+                </div>
+
+                <!-- Chat Message Box -->
+                <div id="chatHistory" style="height:130px; overflow-y:auto; background:rgba(15,23,42,0.8); border-radius:8px; padding:8px; border:1px solid rgba(255,255,255,0.05); margin-bottom:8px; font-size:0.78rem; display:flex; flex-direction:column; gap:6px;">
+                    <div class="msg ai"><strong>Gemini AI:</strong> Hello! Ask me to move the 5-DOF robot arm, pick up items, or wave!</div>
+                </div>
+
+                <!-- Realtime Audio VU Volume Level Meter Bar -->
+                <div style="background:rgba(15,23,42,0.9); padding:8px; border-radius:8px; border:1px solid var(--panel-border); margin-bottom:8px;">
+                    <div style="font-size:0.72rem; color:var(--accent-cyan); font-weight:bold; margin-bottom:4px; display:flex; justify-content:space-between; align-items:center;">
+                        <span>🎙️ LIVE MIC SOUND INDICATOR</span>
+                        <span id="vuVal" style="color:var(--accent-green); font-family:monospace; font-size:0.8rem;">0%</span>
+                    </div>
+                    <div style="background:#0f172a; height:12px; border-radius:6px; overflow:hidden; border:1px solid rgba(255,255,255,0.1); position:relative; margin-bottom:6px;">
+                        <div id="micVuBar" style="width:0%; height:100%; background:linear-gradient(90deg, var(--accent-cyan), var(--accent-green), var(--accent-orange), var(--accent-red)); transition:width 0.04s linear; box-shadow: 0 0 10px var(--accent-green);"></div>
+                    </div>
+
+                    <!-- Mic Sensitivity Gain Slider -->
+                    <div class="slider-control" style="margin-bottom:4px;">
+                        <div class="slider-label" style="font-size:0.68rem; margin-bottom:2px;">
+                            <span>🎚️ Microphone Gain / Sensitivity</span>
+                            <span class="slider-val" id="valMicSensitivity" style="color:var(--accent-cyan); font-size:0.75rem;">100%</span>
+                        </div>
+                        <input type="range" id="slideMicSensitivity" min="10" max="300" value="100" style="width:100%;">
+                    </div>
+
+                    <div id="micStatusText" style="font-size:0.68rem; color:var(--text-muted); margin-top:2px;">
+                        Status: Click "Activate Mic" button to start listening.
+                    </div>
+                </div>
+
+                <!-- Voice Mic & Chat Controls -->
+                <div style="display:flex; gap:6px; margin-bottom:6px;">
+                    <input type="text" id="chatInput" placeholder="Ask Gemini something..." 
+                           style="flex:1; padding:8px; border-radius:6px; border:1px solid var(--panel-border); background:#0f172a; color:#fff; font-size:0.8rem;">
+                    <button class="btn-preset primary" id="btnSendChat">Send</button>
+                </div>
+
+                <div style="display:grid; grid-template-columns:1fr 1fr; gap:6px;">
+                    <button class="btn-preset" id="btnMic" style="background:linear-gradient(135deg, rgba(16,185,129,0.25), rgba(0,240,255,0.25)); border-color:var(--accent-green); font-weight:bold;">🎙️ Activate Mic</button>
+                    <button class="btn-preset" id="btnAskVision">👁️ Describe Scene</button>
+                </div>
+            </div>
+
+            <!-- MP3 Music Player & Arm Conductor Studio Section -->
+            <div class="panel-section" id="mp3StudioPanel">
+                <div class="section-title">
+                    <span>🎵 MP3 Song Conductor & Word Lip-Sync</span>
+                    <span style="font-size:0.7rem; color:var(--accent-orange);">AUDIO SUBFOLDER</span>
+                </div>
+
+                <input type="file" id="mp3FileInput" accept=".mp3,audio/mpeg,audio/*" style="display:none;">
+                <button class="btn-preset primary" id="btnUploadMp3" style="width:100%; margin-bottom:8px; background:linear-gradient(135deg, rgba(245,158,11,0.35), rgba(236,72,153,0.35)); border-color:var(--accent-orange); font-weight:bold; font-size:0.82rem; padding:8px;">📁 Import MP3 to static/audio/ Folder</button>
+
+                <div style="margin-bottom:6px;">
+                    <label class="form-label" style="font-size:0.72rem; margin-bottom:2px;">Select Imported MP3 Song:</label>
+                    <select id="selectMp3Song" class="form-select" style="width:100%; font-size:0.8rem; padding:6px;">
+                        <option value="">Loading MP3 files from audio/ folder...</option>
+                    </select>
+                </div>
+
+                <div style="margin-bottom:8px;">
+                    <label class="form-label" style="font-size:0.72rem; margin-bottom:2px;">Arm Conducting Style:</label>
+                    <select id="selectMusicConductor" class="form-select" style="width:100%; font-size:0.8rem; padding:6px;">
+                        <option value="Orchestra Conductor" selected>🎼 Orchestra Conductor (Maestro Sweeps & Beats)</option>
+                        <option value="Symphony Maestro Sweep">🎻 Symphony Maestro Sweep</option>
+                        <option value="Rock Concert Conductor">🎸 Rock Concert Conductor (High Energy Wrist Flicks)</option>
+                        <option value="Wave Arm Dance">🕺 Wave Arm Dance Routine</option>
+                        <option value="Arm Disco Dance">💃 Arm Disco Boogie</option>
+                    </select>
+                </div>
+
+                <!-- Music Controls & Progress Bar -->
+                <div style="display:grid; grid-template-columns:1fr 1fr 1fr; gap:6px; margin-bottom:6px;">
+                    <button class="btn-preset" id="btnPlayMusic" style="background:var(--accent-green); color:#000; font-weight:bold;">▶️ Conduct & Lip-Sync</button>
+                    <button class="btn-preset" id="btnPauseMusic" style="background:var(--accent-orange); color:#000; font-weight:bold;">⏸️ Pause</button>
+                    <button class="btn-preset" id="btnStopMusic" style="background:var(--accent-red); color:#fff; font-weight:bold;">⏹️ Stop</button>
+                </div>
+
+                <div style="font-size:0.7rem; color:var(--accent-cyan); font-weight:bold; margin-bottom:4px; display:flex; justify-content:space-between;">
+                    <span id="musicTrackName" style="max-width:160px; overflow:hidden; text-overflow:ellipsis; white-space:nowrap;">Track: None</span>
+                    <span id="musicTimeVal">0:00 / 0:00</span>
+                </div>
+                <input type="range" id="slideMusicProgress" min="0" max="100" value="0" style="width:100%; margin-bottom:6px;">
+
+                <div style="font-size:0.7rem; color:var(--text-muted); display:flex; align-items:center; gap:8px;">
+                    <span>🔊 Volume:</span>
+                    <input type="range" id="slideMusicVolume" min="0" max="100" value="80" style="flex:1;">
+                    <span id="valMusicVolume" style="color:var(--accent-cyan);">80%</span>
+                </div>
+            </div>
+
+            <div class="panel-section">
+                <div class="section-title">Arm Presets & Interactive Gestures</div>
+                <div class="btn-group" id="presetButtons">
+                    <button class="btn-preset primary" data-pose="Orchestra Conductor" style="grid-column: 1 / -1; background: linear-gradient(135deg, rgba(0,240,255,0.35), rgba(16,185,129,0.35)); border-color:var(--accent-cyan); font-weight:bold; font-size:0.85rem; padding:10px;">🎼 Orchestra Conductor (Maestro Sweeps & Beat Flicks)</button>
+                    <button class="btn-preset primary" data-pose="Wave Arm Dance" style="grid-column: 1 / -1; background: linear-gradient(135deg, rgba(236,72,153,0.35), rgba(0,240,255,0.35), rgba(168,85,247,0.35)); border-color:var(--accent-cyan); font-weight:bold; font-size:0.85rem; padding:10px;">🌟 Wave Arm Dance Routine 🕺</button>
+                    <button class="btn-preset" data-pose="Symphony Maestro Sweep" style="background:linear-gradient(135deg, rgba(245,158,11,0.25), rgba(236,72,153,0.25)); border-color:var(--accent-orange); font-weight:bold;">🎻 Symphony Maestro</button>
+                    <button class="btn-preset" data-pose="Rock Concert Conductor">🎸 Rock Conductor</button>
+                    <button class="btn-preset" data-pose="Gesture Yes" style="background:linear-gradient(135deg, rgba(16,185,129,0.3), rgba(0,240,255,0.2)); border-color:var(--accent-green); font-weight:bold;">Yes (Nod) 👍</button>
+                    <button class="btn-preset" data-pose="Gesture No" style="background:linear-gradient(135deg, rgba(239,68,68,0.3), rgba(245,158,11,0.2)); border-color:var(--accent-red); font-weight:bold;">No (Shake) 👎</button>
+                    <button class="btn-preset" data-pose="High Five" style="background:linear-gradient(135deg, rgba(168,85,247,0.3), rgba(0,240,255,0.3)); border-color:var(--accent-purple); font-weight:bold;">High Five ✋</button>
+                    <button class="btn-preset" data-pose="Home / Rest">Home / Rest 🏠</button>
+                    <button class="btn-preset" data-pose="Pick / Reach Floor" style="background:linear-gradient(135deg, rgba(239,68,68,0.2), rgba(245,158,11,0.2)); border-color:var(--accent-orange); font-weight:bold;">Pick Object 📦</button>
+                    <button class="btn-preset" data-pose="Place / Elevated Target">Place Object 📥</button>
+                    <button class="btn-preset" data-pose="Reach High">Reach High 👆</button>
+                    <button class="btn-preset" data-pose="Grab & Hold">Grab & Hold ✊</button>
+                    <button class="btn-preset" data-pose="Salute / Respect">Salute 🫡</button>
+                    <button class="btn-preset" data-pose="Arm Disco Dance">Disco Dance 🕺</button>
+                    <button class="btn-preset" data-pose="Scan Environment">Scan Area 👁️</button>
+                    <button class="btn-preset" data-pose="Park Position">Park Arm 🅿️</button>
+                </div>
+            </div>
+
+            <div class="panel-section">
+                <div class="section-title">
+                    <span>📡 Ultrasonic Rangefinder</span>
+                    <span style="font-size:0.7rem; color:var(--accent-green);">HC-SR04</span>
+                </div>
+                <div class="joint-row"><span>Front Obstacle Distance:</span><span id="distFront" style="font-weight:bold; color:#fff;">45 cm</span></div>
+            </div>
+
+            <div class="panel-section">
+                <div class="section-title">
+                    <span>⚡ Head Motor Driver State</span>
+                    <span style="font-size:0.7rem; color:var(--accent-purple)">L298 H-BRIDGE</span>
+                </div>
+                <div class="joint-row"><span>Ch 1 (Mouth Motor):</span><span id="motorMouthStatus" style="color:var(--text-muted); font-weight:bold;">OFF</span></div>
+                <div class="joint-row"><span>Ch 2 (Pulsating Neck):</span><span id="motorNeckStatus" style="color:var(--text-muted); font-weight:bold;">OFF</span></div>
+            </div>
+
+            <div class="panel-section">
+                <div class="section-title">
+                    <span>6-DOF Joint Telemetry</span>
+                    <span style="font-size:0.7rem; color:var(--accent-cyan);" id="ikStatus">IK VALID</span>
+                </div>
+                <div class="telemetry-grid" id="telemetryGrid"></div>
+            </div>
+        </aside>
+    </div>
+
+    <!-- VIEW 2: SETTINGS & HARDWARE CONFIGURATION -->
+    <div class="view-screen" id="viewSettings">
+        <div class="settings-card">
+            <div class="section-title">🔑 Google Gemini AI API Configuration</div>
+            <div class="form-group">
+                <label class="form-label">Gemini API Key</label>
+                <input type="password" id="settingsApiKey" class="form-input" value="">
+            </div>
+            <div class="form-group">
+                <label class="form-label">AI Model Selection</label>
+                <select id="selectModel" class="form-select">
+                    <option value="gemini-3.8-flash" selected>Gemini 3.8 Flash (Fast Multimodal)</option>
+                    <option value="gemini-2.5-pro">Gemini 2.5 Pro (Advanced Reasoning)</option>
+                    <option value="gemini-flash-latest">Gemini Flash Latest</option>
+                </select>
+            </div>
+            <button class="btn-preset primary" id="btnSaveSettings">Save AI Settings</button>
+
+            <div class="section-title" style="margin-top:16px;">🤖 Distance Alert Safeguard</div>
+            <div class="toggle-switch-container">
+                <span class="toggle-label">Enable Proximity Distance Warning</span>
+                <label class="switch">
+                    <input type="checkbox" id="switchObstacleAvoidance">
+                    <span class="slider-round"></span>
+                </label>
+            </div>
+        </div>
+
+        <div class="settings-card">
+            <div class="section-title">🎥 Audio & Video Hardware Peripherals</div>
+            <div class="form-group">
+                <label class="form-label">Camera Source</label>
+                <div style="display:flex; gap:8px; align-items:center;">
+                    <select id="selectCamera" class="form-select" style="flex:1;">
+                        <option value="usb" selected>eMeet Pixy USB Webcam (/dev/video0) [Default]</option>
+                        <option value="1">Secondary USB Camera (/dev/video1)</option>
+                        <option value="csi">Raspberry Pi CSI Camera (Picamera2 / OV5647)</option>
+                    </select>
+                    <button class="btn-preset primary" id="btnSwitchCamera" style="white-space:nowrap;">📷 Change Camera</button>
+                    <button class="btn-preset" id="btnDefaultEmeetPixy" style="white-space:nowrap;">Set eMeet Pixy</button>
+                </div>
+            </div>
+
+            <div class="form-group">
+                <label class="form-label">Microphone Input</label>
+                <select id="selectMic" class="form-select">
+                    <option value="emeet_pixy" selected>eMeet Pixy USB Microphone</option>
+                    <option value="usb_mic">USB Microphone (Generic)</option>
+                    <option value="default">System Default Microphone</option>
+                </select>
+            </div>
+
+            <div class="form-group">
+                <label class="form-label">AI Voice Speech Synthesis (TTS)</label>
+                <select id="selectVoice" class="form-select">
+                    <option value="default">Loading System Voices...</option>
+                </select>
+            </div>
+        </div>
+    </div>
+
+    <!-- VIEW 3: SERVO CALIBRATION WORKBENCH -->
+    <div class="view-screen" id="viewCalibration">
+        <div class="calib-top-section">
+            <div class="settings-card calib-3d-card">
+                <div class="section-title" style="margin:0; display:flex; justify-content:space-between; align-items:center;">
+                    <span>🎥 Live 3D Calibration Preview</span>
+                    <button class="tool-btn" id="btnResetCamCalib">📷 Reset Camera</button>
+                </div>
+                <div class="viewport-container calib-viewport-container">
+                    <div id="calibViewport3d" style="width:100%; height:100%;"></div>
+                </div>
+            </div>
+        </div>
+
+        <div class="settings-card calib-bottom-banner">
+            <div class="section-title">🔧 6-Servo Trim Angle Calibration & Fine Tuning</div>
+            <div style="font-size:0.75rem; color:var(--text-muted); margin-bottom:12px;">
+                Fine tune individual trim offsets for each of the 6 servos (J1 Base, J2 Shoulder, J3 Elbow, J4 Wrist Pitch, J5 Wrist Roll, J6 Gripper) to eliminate zero-point assembly offset.
+            </div>
+            <div class="calibration-grid" id="calibrationGrid">
+                <!-- Dynamically populated 5 Servo Calibration Cards -->
+            </div>
+            <button class="btn-preset primary" id="btnResetCalibration" style="margin-top:12px;">Reset All Servo Trims to 0°</button>
+        </div>
+    </div>
+
+    <!-- VIEW 4: WIRING DIAGRAM & SCHEMATIC VIEW -->
+    <div class="view-screen" id="viewWiring">
+        <div class="wiring-container">
+            <!-- Printable PDF Header -->
+            <div class="print-doc-header">
+                <div class="print-doc-logo">🔌</div>
+                <div>
+                    <h1 class="print-doc-title">6-DOF ROBOTIC ARM HARDWARE ELECTRICAL WIRING SCHEMATIC</h1>
+                    <p class="print-doc-sub">Raspberry Pi 4/5 Core • PCA9685 16-Ch PWM Servo Driver • L298N Motor Driver • HC-SR04 Ultrasonic Sensor</p>
+                    <p class="print-doc-meta">Document Rev: 3.2 • Hardware Platform: 6-DOF Servo Arm • Generated: Robotic Arm Control Center Workbench</p>
+                </div>
+            </div>
+
+            <!-- Top Action Header -->
+            <div class="wiring-header-card">
+                <div class="wiring-header-title-box">
+                    <div class="wiring-header-icon">🔌</div>
+                    <div>
+                        <h2 class="wiring-title">6-DOF Robotic Arm Electrical Wiring Schematic & Pinout Guide</h2>
+                        <p class="wiring-subtitle">
+                            Master Wiring Diagram for 6x Servos, PCA9685 PWM Board, L298N Motor Driver, HC-SR04 Sensor, and Power Distribution Bus
+                        </p>
+                        <div class="wiring-meta-badges">
+                            <span class="meta-badge">📋 Rev 3.1</span>
+                            <span class="meta-badge i2c">⚡ I2C Addr: 0x40</span>
+                            <span class="meta-badge pwr">🔋 7.4V LiPo / 5V 10A UBEC</span>
+                            <span class="meta-badge gpio">📡 GPIO Trigger/Echo Pins</span>
+                        </div>
+                    </div>
+                </div>
+
+                <div class="wiring-actions" style="display:flex; gap:10px; align-items:center;">
+                    <button class="btn-preset primary print-btn" id="btnExportWiringPDF">
+                        📄 Export Schematic to PDF
+                    </button>
+                    <button class="btn-preset print-btn" id="btnPrintWiringPDF" style="background: rgba(255,255,255,0.08); border: 1px solid var(--panel-border); color: #fff;">
+                        🖨️ Quick Print
+                    </button>
+                    <button class="btn-preset primary" id="btnExportWiringScript">
+                        🐍 Download Hardware Python Script
+                    </button>
+                </div>
+            </div>
+
+            <!-- Vector Schematic Diagram Card -->
+            <div class="visual-schematic-card">
+                <div class="section-title" style="margin-bottom:12px; display:flex; justify-content:space-between; align-items:center;">
+                    <span>🎨 Interactive Visual Circuit Schematic Diagram</span>
+                    <span style="font-size:0.75rem; color:var(--accent-cyan);">HIGH RESOLUTION VECTOR DIAGRAM</span>
+                </div>
+                <div class="schematic-svg-wrapper">
+                    <svg viewBox="0 0 1000 520" xmlns="http://www.w3.org/2000/svg">
+                        <defs>
+                            <linearGradient id="gradPi" x1="0%" y1="0%" x2="100%" y2="100%">
+                                <stop offset="0%" stop-color="#1e293b"/>
+                                <stop offset="100%" stop-color="#0f172a"/>
+                            </linearGradient>
+                            <linearGradient id="gradPca" x1="0%" y1="0%" x2="100%" y2="100%">
+                                <stop offset="0%" stop-color="#1e3a8a"/>
+                                <stop offset="100%" stop-color="#0f172a"/>
+                            </linearGradient>
+                            <linearGradient id="gradL298" x1="0%" y1="0%" x2="100%" y2="100%">
+                                <stop offset="0%" stop-color="#581c87"/>
+                                <stop offset="100%" stop-color="#0f172a"/>
+                            </linearGradient>
+                            <filter id="glow" x="-20%" y="-20%" width="140%" height="140%">
+                                <feGaussianBlur stdDeviation="3" result="blur" />
+                                <feComposite in="SourceGraphic" in2="blur" operator="over" />
+                            </filter>
+                        </defs>
+
+                        <!-- Background -->
+                        <rect width="1000" height="520" rx="12" fill="#0b1120" stroke="rgba(0, 240, 255, 0.2)" stroke-width="2"/>
+
+                        <!-- Title Text -->
+                        <text x="500" y="30" text-anchor="middle" fill="#00f0ff" font-weight="bold" font-size="16" letter-spacing="1">6-DOF ROBOT ARM MASTER HARDWARE WIRING ARCHITECTURE</text>
+
+                        <!-- 1. Raspberry Pi 4/5 Core Box -->
+                        <rect x="40" y="60" width="230" height="240" rx="10" fill="url(#gradPi)" stroke="#38bdf8" stroke-width="2"/>
+                        <rect x="50" y="70" width="210" height="30" rx="6" fill="rgba(56, 189, 248, 0.15)"/>
+                        <text x="155" y="90" text-anchor="middle" fill="#38bdf8" font-weight="bold" font-size="13">Raspberry Pi 4 / 5</text>
+
+                        <text x="60" y="125" fill="#f8fafc" font-size="11" font-weight="bold">• Pin 3 (SDA / GPIO 2)</text>
+                        <text x="60" y="145" fill="#f8fafc" font-size="11" font-weight="bold">• Pin 5 (SCL / GPIO 3)</text>
+                        <text x="60" y="165" fill="#ef4444" font-size="11" font-weight="bold">• Pin 1 (3.3V Power)</text>
+                        <text x="60" y="185" fill="#94a3b8" font-size="11" font-weight="bold">• Pin 6, 9, 14 (GND)</text>
+                        <text x="60" y="205" fill="#c084fc" font-size="11" font-weight="bold">• GPIO 18,23,24 (L298 Ch1)</text>
+                        <text x="60" y="225" fill="#c084fc" font-size="11" font-weight="bold">• GPIO 19,25,8  (L298 Ch2)</text>
+                        <text x="60" y="245" fill="#10b981" font-size="11" font-weight="bold">• GPIO 5 (Trig) / GPIO 6 (Echo)</text>
+                        <text x="60" y="275" fill="#38bdf8" font-size="10">Master Logic & Web Server</text>
+
+                        <!-- 2. PCA9685 Servo Driver Box -->
+                        <rect x="360" y="60" width="240" height="240" rx="10" fill="url(#gradPca)" stroke="#00f0ff" stroke-width="2"/>
+                        <rect x="370" y="70" width="220" height="30" rx="6" fill="rgba(0, 240, 255, 0.2)"/>
+                        <text x="480" y="90" text-anchor="middle" fill="#00f0ff" font-weight="bold" font-size="13">PCA9685 PWM Driver (0x40)</text>
+
+                        <text x="375" y="120" fill="#00f0ff" font-size="11">• Control: VCC(3.3V), GND, SDA, SCL</text>
+                        <text x="375" y="145" fill="#ef4444" font-size="11" font-weight="bold">• Power Terminal: +5V V+ & GND</text>
+
+                        <rect x="375" y="160" width="210" height="125" rx="6" fill="rgba(15, 23, 42, 0.8)" stroke="rgba(0,240,255,0.3)"/>
+                        <text x="385" y="178" fill="#f8fafc" font-size="10" font-weight="bold">Channel 0: J1 Base Servo (Yaw)</text>
+                        <text x="385" y="196" fill="#f8fafc" font-size="10" font-weight="bold">Channel 1: J2 Shoulder Servo (Pitch)</text>
+                        <text x="385" y="214" fill="#f8fafc" font-size="10" font-weight="bold">Channel 2: J3 Elbow Servo (Pitch)</text>
+                        <text x="385" y="232" fill="#f8fafc" font-size="10" font-weight="bold">Channel 3: J4 Wrist Pitch Servo</text>
+                        <text x="385" y="250" fill="#f8fafc" font-size="10" font-weight="bold">Channel 4: J5 Wrist Roll Servo</text>
+                        <text x="385" y="268" fill="#f8fafc" font-size="10" font-weight="bold">Channel 5: J6 Gripper Claw Servo</text>
+
+                        <!-- 3. Servos Column -->
+                        <g transform="translate(680, 60)">
+                            <rect x="0" y="0" width="280" height="240" rx="10" fill="#0f172a" stroke="#f59e0b" stroke-width="2"/>
+                            <rect x="10" y="8" width="260" height="22" rx="6" fill="rgba(245, 158, 11, 0.2)"/>
+                            <text x="140" y="23" text-anchor="middle" fill="#fbbf24" font-weight="bold" font-size="11">6x High-Torque Servo Motors</text>
+
+                            <rect x="15" y="34" width="250" height="28" rx="4" fill="rgba(30,41,59,0.8)" stroke="rgba(245,158,11,0.3)"/>
+                            <text x="25" y="52" fill="#fff" font-size="9.5" font-weight="bold">Servo 1: Base Yaw (PWM Ch 0)</text>
+
+                            <rect x="15" y="66" width="250" height="28" rx="4" fill="rgba(30,41,59,0.8)" stroke="rgba(245,158,11,0.3)"/>
+                            <text x="25" y="84" fill="#fff" font-size="9.5" font-weight="bold">Servo 2: Shoulder Pitch (PWM Ch 1)</text>
+
+                            <rect x="15" y="98" width="250" height="28" rx="4" fill="rgba(30,41,59,0.8)" stroke="rgba(245,158,11,0.3)"/>
+                            <text x="25" y="116" fill="#fff" font-size="9.5" font-weight="bold">Servo 3: Elbow Pitch (PWM Ch 2)</text>
+
+                            <rect x="15" y="130" width="250" height="28" rx="4" fill="rgba(30,41,59,0.8)" stroke="rgba(245,158,11,0.3)"/>
+                            <text x="25" y="148" fill="#fff" font-size="9.5" font-weight="bold">Servo 4: Wrist Pitch (PWM Ch 3)</text>
+
+                            <rect x="15" y="162" width="250" height="28" rx="4" fill="rgba(30,41,59,0.8)" stroke="rgba(245,158,11,0.3)"/>
+                            <text x="25" y="180" fill="#fff" font-size="9.5" font-weight="bold">Servo 5: Wrist Roll Swivel (PWM Ch 4)</text>
+
+                            <rect x="15" y="194" width="250" height="28" rx="4" fill="rgba(30,41,59,0.8)" stroke="rgba(245,158,11,0.3)"/>
+                            <text x="25" y="212" fill="#fff" font-size="9.5" font-weight="bold">Servo 6: Gripper Claw (PWM Ch 5)</text>
+                        </g>
+
+                        <!-- 4. L298N Dual Motor Driver Box -->
+                        <rect x="40" y="330" width="230" height="150" rx="10" fill="url(#gradL298)" stroke="#a855f7" stroke-width="2"/>
+                        <rect x="50" y="340" width="210" height="25" rx="6" fill="rgba(168, 85, 247, 0.2)"/>
+                        <text x="155" y="357" text-anchor="middle" fill="#c084fc" font-weight="bold" font-size="12">L298N Dual H-Bridge Driver</text>
+                        <text x="55" y="385" fill="#e2e8f0" font-size="10">• Ch 1 (ENA,IN1,IN2): Mouth Motor (GPIO 18,23,24)</text>
+                        <text x="55" y="405" fill="#e2e8f0" font-size="10">• Ch 2 (ENB,IN3,IN4): Neck Motor (GPIO 19,25,8)</text>
+                        <text x="55" y="430" fill="#fbbf24" font-size="10" font-weight="bold">• Power: +7.4V - +12V Motor Terminal</text>
+
+                        <!-- 5. HC-SR04 Ultrasonic Distance Sensor Box -->
+                        <rect x="360" y="330" width="240" height="150" rx="10" fill="#0f172a" stroke="#10b981" stroke-width="2"/>
+                        <rect x="370" y="340" width="220" height="25" rx="6" fill="rgba(16, 185, 129, 0.2)"/>
+                        <text x="480" y="357" text-anchor="middle" fill="#10b981" font-weight="bold" font-size="12">HC-SR04 Ultrasonic Distance Sensor</text>
+                        <text x="375" y="385" fill="#e2e8f0" font-size="10">• VCC: 5V DC Power Terminal Bus</text>
+                        <text x="375" y="405" fill="#10b981" font-size="10" font-weight="bold">• Trig: GPIO 5 (Direct 3.3V Output)</text>
+                        <text x="375" y="425" fill="#fbbf24" font-size="10" font-weight="bold">• Echo: GPIO 6 (via 1kΩ / 2kΩ Divider)</text>
+                        <text x="375" y="450" fill="#94a3b8" font-size="9.5">Resistor divider steps 5V Echo down to 3.3V Pi</text>
+
+                        <!-- 6. High Current Power Bus Box -->
+                        <rect x="680" y="330" width="280" height="150" rx="10" fill="#1e293b" stroke="#ef4444" stroke-width="2"/>
+                        <rect x="690" y="340" width="260" height="25" rx="6" fill="rgba(239, 68, 68, 0.2)"/>
+                        <text x="820" y="357" text-anchor="middle" fill="#f87171" font-weight="bold" font-size="12">Power Supply & UBEC Buck Regulator</text>
+                        <text x="695" y="385" fill="#f87171" font-size="10" font-weight="bold">• LiPo Battery: 2S (7.4V) or 3S (11.1V)</text>
+                        <text x="695" y="405" fill="#38bdf8" font-size="10" font-weight="bold">• UBEC Buck Regulator: 5V 10A High Current</text>
+                        <text x="695" y="425" fill="#e2e8f0" font-size="10">• Common Ground Bus: Tie Pi GND, PCA GND,</text>
+                        <text x="695" y="445" fill="#e2e8f0" font-size="10">  L298N GND, Sensor GND & Power GND Together</text>
+
+                        <!-- Connection Wires (Path Lines) -->
+                        <path d="M 270 140 L 360 140" stroke="#00f0ff" stroke-width="3" fill="none" filter="url(#glow)"/>
+                        <text x="315" y="132" text-anchor="middle" fill="#00f0ff" font-size="10" font-weight="bold">I2C SDA/SCL</text>
+
+                        <path d="M 600 180 L 680 180" stroke="#f59e0b" stroke-width="3" fill="none" filter="url(#glow)"/>
+                        <text x="640" y="172" text-anchor="middle" fill="#fbbf24" font-size="10" font-weight="bold">PWM Signals</text>
+
+                        <path d="M 155 300 L 155 330" stroke="#a855f7" stroke-width="3" fill="none"/>
+                        <path d="M 270 250 L 320 250 L 320 405 L 360 405" stroke="#10b981" stroke-width="2.5" fill="none"/>
+
+                        <path d="M 680 400 L 600 400" stroke="#ef4444" stroke-dasharray="4" stroke-width="2" fill="none"/>
+                        <path d="M 480 300 L 480 330" stroke="#ef4444" stroke-dasharray="4" stroke-width="2" fill="none"/>
+                    </svg>
+                </div>
+            </div>
+
+            <!-- Hardware Pinout Tables Grid -->
+            <div class="wiring-grid">
+                <!-- Card 1: PCA9685 Servo Driver Pinout -->
+                <div class="wiring-card">
+                    <div class="wiring-card-header">
+                        <span class="wiring-badge pca">PCA9685</span>
+                        <h3>PCA9685 16-Ch PWM Servo Pinout Assignment</h3>
+                    </div>
+                    <div class="wiring-table-wrapper">
+                        <table class="wiring-table">
+                            <thead>
+                                <tr>
+                                    <th>Channel</th>
+                                    <th>Robot Joint</th>
+                                    <th>Signal Wire</th>
+                                    <th>Voltage</th>
+                                </tr>
+                            </thead>
+                            <tbody>
+                                <tr>
+                                    <td><span class="addr-tag pca">Ch 0</span></td>
+                                    <td><strong>J1: Base Rotation Servo (Yaw)</strong></td>
+                                    <td>Yellow / White</td>
+                                    <td>5.0V DC (V+)</td>
+                                </tr>
+                                <tr>
+                                    <td><span class="addr-tag pca">Ch 1</span></td>
+                                    <td><strong>J2: Shoulder Servo (Pitch)</strong></td>
+                                    <td>Yellow / White</td>
+                                    <td>5.0V DC (V+)</td>
+                                </tr>
+                                <tr>
+                                    <td><span class="addr-tag pca">Ch 2</span></td>
+                                    <td><strong>J3: Elbow Servo (Pitch)</strong></td>
+                                    <td>Yellow / White</td>
+                                    <td>5.0V DC (V+)</td>
+                                </tr>
+                                <tr>
+                                    <td><span class="addr-tag pca">Ch 3</span></td>
+                                    <td><strong>J4: Wrist Tilt Servo (Pitch)</strong></td>
+                                    <td>Yellow / White</td>
+                                    <td>5.0V DC (V+)</td>
+                                </tr>
+                                <tr>
+                                    <td><span class="addr-tag pca">Ch 4</span></td>
+                                    <td><strong>J5: Wrist Roll Swivel Servo</strong></td>
+                                    <td>Yellow / White</td>
+                                    <td>5.0V DC (V+)</td>
+                                </tr>
+                                <tr>
+                                    <td><span class="addr-tag pca">Ch 5</span></td>
+                                    <td><strong>J6: Gripper Claw Servo</strong></td>
+                                    <td>Yellow / White</td>
+                                    <td>5.0V DC (V+)</td>
+                                </tr>
+                            </tbody>
+                        </table>
+                    </div>
+                </div>
+
+                <!-- Card 2: Raspberry Pi GPIO Pinout Assignment -->
+                <div class="wiring-card">
+                    <div class="wiring-card-header">
+                        <span class="wiring-badge rpi">Raspberry Pi</span>
+                        <h3>Raspberry Pi GPIO Pin Mapping</h3>
+                    </div>
+                    <div class="wiring-table-wrapper">
+                        <table class="wiring-table">
+                            <thead>
+                                <tr>
+                                    <th>Header Pin</th>
+                                    <th>GPIO / Function</th>
+                                    <th>Target Device</th>
+                                    <th>Signal Level</th>
+                                </tr>
+                            </thead>
+                            <tbody>
+                                <tr>
+                                    <td>Pin 3</td>
+                                    <td>GPIO 2 (SDA)</td>
+                                    <td>PCA9685 SDA</td>
+                                    <td>3.3V I2C Data</td>
+                                </tr>
+                                <tr>
+                                    <td>Pin 5</td>
+                                    <td>GPIO 3 (SCL)</td>
+                                    <td>PCA9685 SCL</td>
+                                    <td>3.3V I2C Clock</td>
+                                </tr>
+                                <tr>
+                                    <td>Pin 12, 16, 18</td>
+                                    <td>GPIO 18, 23, 24</td>
+                                    <td>L298N Ch1 (Mouth Motor)</td>
+                                    <td>3.3V PWM / Dir</td>
+                                </tr>
+                                <tr>
+                                    <td>Pin 35, 22, 24</td>
+                                    <td>GPIO 19, 25, 8</td>
+                                    <td>L298N Ch2 (Neck Motor)</td>
+                                    <td>3.3V PWM / Dir</td>
+                                </tr>
+                                <tr>
+                                    <td>Pin 29</td>
+                                    <td>GPIO 5</td>
+                                    <td>HC-SR04 Trig Pin</td>
+                                    <td>3.3V Trigger Pulse</td>
+                                </tr>
+                                <tr>
+                                    <td>Pin 31</td>
+                                    <td>GPIO 6</td>
+                                    <td>HC-SR04 Echo Pin</td>
+                                    <td>3.3V (via Divider)</td>
+                                </tr>
+                            </tbody>
+                        </table>
+                    </div>
+                </div>
+
+                <!-- Card 3: L298N DC Motor Driver Pinout -->
+                <div class="wiring-card">
+                    <div class="wiring-card-header">
+                        <span class="wiring-badge l298">L298N</span>
+                        <h3>L298N Dual H-Bridge Motor Connections</h3>
+                    </div>
+                    <div class="wiring-subcard-grid">
+                        <div class="wiring-subcard">
+                            <h4>👄 Channel 1: Mouth Movement DC Motor</h4>
+                            <ul class="pin-list">
+                                <li><strong>ENA (Speed PWM):</strong> GPIO 18 (Pin 12)</li>
+                                <li><strong>IN1 (Direction 1):</strong> GPIO 23 (Pin 16)</li>
+                                <li><strong>IN2 (Direction 2):</strong> GPIO 24 (Pin 18)</li>
+                                <li><strong>Motor Output:</strong> Motor 1 Screw Terminals</li>
+                            </ul>
+                        </div>
+                        <div class="wiring-subcard">
+                            <h4>🦒 Channel 2: Pulsating Neck DC Motor</h4>
+                            <ul class="pin-list">
+                                <li><strong>ENB (Speed PWM):</strong> GPIO 19 (Pin 35)</li>
+                                <li><strong>IN3 (Direction 1):</strong> GPIO 25 (Pin 22)</li>
+                                <li><strong>IN4 (Direction 2):</strong> GPIO 8 (Pin 24)</li>
+                                <li><strong>Motor Output:</strong> Motor 2 Screw Terminals</li>
+                            </ul>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Card 4: Power Supply Distribution Bus & Voltage Dividers -->
+                <div class="wiring-card">
+                    <div class="wiring-card-header">
+                        <span class="wiring-badge power">Power Bus</span>
+                        <h3>Power Supply & Resistor Divider Architecture</h3>
+                    </div>
+                    <div class="wiring-power-box">
+                        <div class="pb-item">
+                            <span class="pb-tag">⚡ Primary Power</span>
+                            <div class="pb-desc">2S (7.4V) or 3S (11.1V) LiPo Battery connected to High Current Bus</div>
+                        </div>
+                        <div class="pb-item">
+                            <span class="pb-tag">🔋 Servo Power</span>
+                            <div class="pb-desc">5V 10A UBEC Buck Converter feeds PCA9685 V+ Power Screw Terminals</div>
+                        </div>
+                        <div class="pb-item">
+                            <span class="pb-tag">🛡️ Resistor Divider</span>
+                            <div class="pb-desc">1kΩ & 2kΩ resistor divider steps 5V HC-SR04 Echo signal down to 3.3V for Pi GPIO protection</div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Print Footer Notice -->
+            <div class="print-doc-footer">
+                <p>6-DOF Robotic Arm Control Workbench • Electrical Wiring & Pinout Guide • Confidential / Engineering Reference</p>
+            </div>
+        </div>
+    </div>
+
+    <!-- VIEW 5: USER INSTRUCTIONS & MANUAL GUIDE VIEW -->
+    <div class="view-screen" id="viewInstructions">
+        <div class="guide-wrapper">
+            <div class="guide-header">
+                <div class="guide-title-box">
+                    <span class="guide-icon">📖</span>
+                    <div>
+                        <h2>6-DOF Robotic Arm Control Center Operating Manual & User Guide</h2>
+                        <p>Complete Setup, 3D Kinematics Pose Control, Servo Trim Calibration, Gemini AI Voice & Vision, and Maintenance Instructions</p>
+                    </div>
+                </div>
+                <div class="guide-actions">
+                    <button class="btn-preset primary" id="btnExportInstructionsPDF">📄 Export PDF</button>
+                    <button class="btn-preset" id="btnPrintInstructionsPDF">🖨️ Quick Print</button>
+                </div>
+            </div>
+
+            <div class="guide-grid">
+                <!-- Step 1 -->
+                <div class="guide-card">
+                    <div class="guide-card-header">
+                        <span class="guide-step">Step 1</span>
+                        <h3>⚡ Quick Start & System Power On</h3>
+                    </div>
+                    <ul class="guide-list">
+                        <li><strong>1. Power Supply Connection:</strong> Connect a 2S (7.4V) or 3S (11.1V) LiPo battery to the high-current power terminal bus. Ensure the 5V 10A UBEC powers PCA9685 servos and Pi logic.</li>
+                        <li><strong>2. Start Web Controller:</strong> Launch the Python server terminal command:
+                            <br><code>python3 server.py</code></li>
+                        <li><strong>3. Open Workbench:</strong> Navigate to <strong>http://localhost:1090</strong> in your web browser.</li>
+                        <li><strong>4. Connection Status:</strong> Ensure the status badge at top right displays <span class="status-online">ONLINE</span>.</li>
+                    </ul>
+                </div>
+
+                <!-- Step 2 -->
+                <div class="guide-card">
+                    <div class="guide-card-header">
+                        <span class="guide-step">Step 2</span>
+                        <h3>🎮 3D Kinematics & Joint Control</h3>
+                    </div>
+                    <ul class="guide-list">
+                        <li><strong>• Joint Angle Sliders:</strong> Individually adjust Base Rotation J1 (-90° to +90°), Shoulder J2 (-90° to +90°), Elbow J3 (-135° to +135°), Wrist Tilt J4 (-90° to +90°), Wrist Roll J5 (-90° to +90°), and Gripper Claw J6 (0% to 100%).</li>
+                        <li><strong>• Realtime Inverse Kinematics (IK):</strong> Inspect 3D End-Effector target coordinates (X, Y, Z in mm) updated live in the left panel.</li>
+                        <li><strong>• On-Screen Motion D-Pad:</strong> Use ▲/▼ for Shoulder pitch, ◄/► for Base rotation, and 👐/✊ for Claw opening & closing.</li>
+                    </ul>
+                </div>
+
+                <!-- Step 3 -->
+                <div class="guide-card">
+                    <div class="guide-card-header">
+                        <span class="guide-step">Step 3</span>
+                        <h3>🔧 6-Servo Trim Calibration Workbench</h3>
+                    </div>
+                    <ul class="guide-list">
+                        <li><strong>1. Calibration Tab:</strong> Switch to <strong>🔧 Servo Calibration</strong> view to inspect the live 3D preview and fine-tune trim offsets.</li>
+                        <li><strong>2. Joint Trim Adjustments:</strong> Calibrate individual offset angles (-30° to +30°) for all 6 servos to eliminate mechanical assembly error.</li>
+                        <li><strong>3. Quick Arm Presets:</strong> Test hardware alignment using quick buttons: <em>Orchestra Conductor 🎼</em>, <em>Wave Arm Dance 🕺</em>, <em>Yes (Nod) 👍</em>, <em>No (Shake) 👎</em>, <em>High Five ✋</em>, <em>Home / Rest 🏠</em>, and <em>Pick Object 📦</em>.</li>
+                    </ul>
+                </div>
+
+                <!-- Step 4 -->
+                <div class="guide-card">
+                    <div class="guide-card-header">
+                        <span class="guide-step">Step 4</span>
+                        <h3>🤖 Gemini AI Multimodal Assistant & Camera Vision</h3>
+                    </div>
+                    <ul class="guide-list">
+                        <li><strong>1. API Key Setup:</strong> Enter your Google Gemini API key in the AI panel or under <strong>⚙️ Settings & HW</strong>.</li>
+                        <li><strong>2. Activate Microphone:</strong> Click <strong>🎙️ Activate Mic</strong> for live hands-free speech recognition with VU meter sensitivity gain control.</li>
+                        <li><strong>3. Camera Scene Description:</strong> Click <strong>👁️ Describe Scene</strong> to capture eMeet Pixy webcam frames and have Gemini speak environment descriptions out loud!</li>
+                    </ul>
+                </div>
+
+                <!-- Step 5 -->
+                <div class="guide-card">
+                    <div class="guide-card-header">
+                        <span class="guide-step">Step 5</span>
+                        <h3>🎵 MP3 Music Conductor & Lip-Sync Studio</h3>
+                    </div>
+                    <ul class="guide-list">
+                        <li><strong>1. Import Music Files:</strong> Click <strong>📁 Import MP3 to static/audio/ Folder</strong> to load songs into local storage.</li>
+                        <li><strong>2. Arm Conductor Styles:</strong> Choose between <em>Orchestra Conductor</em>, <em>Symphony Maestro Sweep</em>, <em>Rock Concert Conductor</em>, <em>Wave Arm Dance</em>, and <em>Arm Disco Dance</em>.</li>
+                        <li><strong>3. Playback & Lip-Sync:</strong> Click <strong>▶️ Conduct & Lip-Sync</strong>. The mouth DC motor automatically opens during speech/song vocals!</li>
+                    </ul>
+                </div>
+
+                <!-- Step 6 -->
+                <div class="guide-card">
+                    <div class="guide-card-header">
+                        <span class="guide-step">Step 6</span>
+                        <h3>📡 Autonomous Rangefinding & Maintenance</h3>
+                    </div>
+                    <ul class="guide-list">
+                        <li><strong>• Ultrasonic Rangefinder:</strong> HC-SR04 sensor continuously monitors front obstacle distances in real time.</li>
+                        <li><strong>• Distance Alert Safeguard:</strong> Toggle <strong>Enable Proximity Distance Warning</strong> in Settings to prevent arm collisions.</li>
+                        <li><strong>• Battery Protection:</strong> Disconnect LiPo battery when not in use. Verify 1kΩ / 2kΩ resistor dividers step down 5V Echo signals to 3.3V Pi GPIO levels.</li>
+                    </ul>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Application Modules -->
+    <script src="lib/html2pdf.bundle.min.js"></script>
+    <script src="kinematics.js?v=300"></script>
+    <script src="hexapod3d.js?v=300"></script>
+    <script src="gemini_chat.js?v=300"></script>
+    <script src="app.js?v=300"></script>
+</body>
+</html>
