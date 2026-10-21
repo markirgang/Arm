@@ -4,6 +4,8 @@ import socketserver
 import json
 import os
 import sys
+import socket
+import ssl
 import cv2
 import base64
 import threading
@@ -626,6 +628,18 @@ if __name__ == "__main__":
 class ThreadingReusableTCPServer(socketserver.ThreadingMixIn, socketserver.TCPServer):
     allow_reuse_address = True
     daemon_threads = True
+    ssl_context = None
+
+    def get_request(self):
+        newsocket, fromaddr = self.socket.accept()
+        if self.ssl_context:
+            try:
+                first_byte = newsocket.recv(1, socket.MSG_PEEK)
+                if first_byte and first_byte[0] == 0x16:
+                    newsocket = self.ssl_context.wrap_socket(newsocket, server_side=True)
+            except Exception:
+                pass
+        return newsocket, fromaddr
 
 if __name__ == "__main__":
     for i in range(1, len(sys.argv)):
@@ -634,10 +648,25 @@ if __name__ == "__main__":
         elif sys.argv[i] == "--host" and i + 1 < len(sys.argv):
             HOST = sys.argv[i + 1]
 
+    cert_path = os.path.join(os.path.dirname(os.path.abspath(__file__)), "cert.pem")
+    key_path = os.path.join(os.path.dirname(os.path.abspath(__file__)), "key.pem")
+    if not (os.path.exists(cert_path) and os.path.exists(key_path)):
+        cert_path = "/home/markirgang/Tweedpump/cert.pem"
+        key_path = "/home/markirgang/Tweedpump/key.pem"
+
+    ssl_ctx = None
+    if os.path.exists(cert_path) and os.path.exists(key_path):
+        try:
+            ssl_ctx = ssl.SSLContext(ssl.PROTOCOL_TLS_SERVER)
+            ssl_ctx.load_cert_chain(certfile=cert_path, keyfile=key_path)
+        except Exception as e:
+            print(f"SSL cert load warning: {e}")
+
     display_host = "localhost" if HOST in ["", "0.0.0.0", "127.0.0.1"] else HOST
-    print(f"Starting Multithreaded 6-DOF Robot Arm Server on http://{display_host}:{PORT}")
+    print(f"Starting Multithreaded 6-DOF Robot Arm Server on http://{display_host}:{PORT} (http & https supported)")
     bind_host = "" if HOST in ["", "0.0.0.0", "127.0.0.1", "localhost"] else HOST
     with ThreadingReusableTCPServer((bind_host, PORT), RobotArmRequestHandler) as httpd:
+        httpd.ssl_context = ssl_ctx
         try:
             httpd.serve_forever()
         except KeyboardInterrupt:

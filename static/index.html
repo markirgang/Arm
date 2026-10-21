@@ -696,6 +696,113 @@
                 </div>
             </div>
 
+            <!-- Raspberry Pi 40-Pin GPIO Pinout Guide Card -->
+            <div class="wiring-card full-width" style="margin-top:20px;">
+                <div class="wiring-card-header">
+                    <span class="wiring-badge rpi">40-PIN HEADER</span>
+                    <h3>Raspberry Pi 4/5 40-Pin GPIO Header Pinout Guide</h3>
+                </div>
+                <div class="wiring-table-wrapper" style="overflow-x:auto;">
+                    <table class="wiring-table font-mono" style="width:100%; font-size:0.85rem; border-collapse:collapse;">
+                        <thead>
+                            <tr style="background: rgba(30,41,59,0.8); color: var(--accent-cyan);">
+                                <th style="padding:10px; text-align:right;">Physical Pin</th>
+                                <th style="padding:10px; text-align:right;">BCM Signal</th>
+                                <th style="padding:10px; text-align:center; background:rgba(51,65,85,0.5);">6-DOF Robotic Arm Signal Assignment</th>
+                                <th style="padding:10px; text-align:left;">BCM Signal</th>
+                                <th style="padding:10px; text-align:left;">Physical Pin</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            <tr>
+                                <td style="padding:8px; text-align:right; color:#f87171; font-weight:bold;">Pin 1</td>
+                                <td style="padding:8px; text-align:right; color:#f87171;">3.3V Power</td>
+                                <td style="padding:8px; text-align:center; color:#e2e8f0;">PCA9685 Board VCC Logic Power (3.3V)</td>
+                                <td style="padding:8px; text-align:left; color:#fbbf24; font-weight:bold;">5.0V Power</td>
+                                <td style="padding:8px; text-align:left; color:#fbbf24; font-weight:bold;">Pin 2</td>
+                            </tr>
+                            <tr>
+                                <td style="padding:8px; text-align:right; color:#38bdf8; font-weight:bold;">Pin 3</td>
+                                <td style="padding:8px; text-align:right; color:#38bdf8;">GPIO 2 (SDA)</td>
+                                <td style="padding:8px; text-align:center; color:#e2e8f0;">PCA9685 16-Ch Servo Driver I2C Bus SDA (0x40)</td>
+                                <td style="padding:8px; text-align:left; color:#fbbf24; font-weight:bold;">5.0V Power</td>
+                                <td style="padding:8px; text-align:left; color:#fbbf24; font-weight:bold;">Pin 4</td>
+                            </tr>
+                            <tr>
+                                <td style="padding:8px; text-align:right; color:#38bdf8; font-weight:bold;">Pin 5</td>
+                                <td style="padding:8px; text-align:right; color:#38bdf8;">GPIO 3 (SCL)</td>
+                                <td style="padding:8px; text-align:center; color:#e2e8f0;">PCA9685 16-Ch Servo Driver I2C Bus SCL (0x40)</td>
+                                <td style="padding:8px; text-align:left; color:#64748b;">Ground</td>
+                                <td style="padding:8px; text-align:left; color:#64748b; font-weight:bold;">Pin 6</td>
+                            </tr>
+                            <tr>
+                                <td style="padding:8px; text-align:right; color:#a78bfa; font-weight:bold;">Pin 7</td>
+                                <td style="padding:8px; text-align:right; color:#a78bfa;">GPIO 4</td>
+                                <td style="padding:8px; text-align:center; color:#e2e8f0;">L298 Driver ENB (Pulsating Neck Motor PWM)</td>
+                                <td style="padding:8px; text-align:left; color:#38bdf8; font-weight:bold;">GPIO 14 (TX)</td>
+                                <td style="padding:8px; text-align:left; color:#38bdf8; font-weight:bold;">Pin 8</td>
+                            </tr>
+                            <tr>
+                                <td style="padding:8px; text-align:right; color:#64748b;">Ground</td>
+                                <td style="padding:8px; text-align:right; color:#64748b;">Ground</td>
+                                <td style="padding:8px; text-align:center; color:#e2e8f0;">System Common Ground Rail</td>
+                                <td style="padding:8px; text-align:left; color:#38bdf8; font-weight:bold;">GPIO 15 (RX)</td>
+                                <td style="padding:8px; text-align:left; color:#38bdf8; font-weight:bold;">Pin 10</td>
+                            </tr>
+                            <tr>
+                                <td style="padding:8px; text-align:right; color:#a78bfa; font-weight:bold;">Pin 11</td>
+                                <td style="padding:8px; text-align:right; color:#a78bfa;">GPIO 17</td>
+                                <td style="padding:8px; text-align:center; color:#e2e8f0;">L298 Driver ENA (Mouth Motor PWM)</td>
+                                <td style="padding:8px; text-align:left; color:#38bdf8; font-weight:bold;">GPIO 18 (PWM0)</td>
+                                <td style="padding:8px; text-align:left; color:#38bdf8; font-weight:bold;">Pin 12</td>
+                            </tr>
+                            <tr>
+                                <td style="padding:8px; text-align:right; color:#a78bfa; font-weight:bold;">Pin 13</td>
+                                <td style="padding:8px; text-align:right; color:#a78bfa;">GPIO 27</td>
+                                <td style="padding:8px; text-align:center; color:#e2e8f0;">L298 Driver IN1 (Mouth Motor Dir 1)</td>
+                                <td style="padding:8px; text-align:left; color:#64748b;">Ground</td>
+                                <td style="padding:8px; text-align:left; color:#64748b; font-weight:bold;">Pin 14</td>
+                            </tr>
+                            <tr>
+                                <td style="padding:8px; text-align:right; color:#a78bfa; font-weight:bold;">Pin 15</td>
+                                <td style="padding:8px; text-align:right; color:#a78bfa;">GPIO 22</td>
+                                <td style="padding:8px; text-align:center; color:#e2e8f0;">L298 Driver IN2 (Mouth Motor Dir 2)</td>
+                                <td style="padding:8px; text-align:left; color:#38bdf8; font-weight:bold;">GPIO 23</td>
+                                <td style="padding:8px; text-align:left; color:#38bdf8; font-weight:bold;">Pin 16</td>
+                            </tr>
+                            <tr>
+                                <td style="padding:8px; text-align:right; color:#38bdf8; font-weight:bold;">Pin 16</td>
+                                <td style="padding:8px; text-align:right; color:#38bdf8;">GPIO 23</td>
+                                <td style="padding:8px; text-align:center; color:#e2e8f0;">HC-SR04 Ultrasonic Echo Input (via 2/3 Divider)</td>
+                                <td style="padding:8px; text-align:left; color:#38bdf8; font-weight:bold;">GPIO 24</td>
+                                <td style="padding:8px; text-align:left; color:#38bdf8; font-weight:bold;">Pin 18</td>
+                            </tr>
+                            <tr>
+                                <td style="padding:8px; text-align:right; color:#38bdf8; font-weight:bold;">Pin 18</td>
+                                <td style="padding:8px; text-align:right; color:#38bdf8;">GPIO 24</td>
+                                <td style="padding:8px; text-align:center; color:#e2e8f0;">HC-SR04 Ultrasonic Trig Output</td>
+                                <td style="padding:8px; text-align:left; color:#64748b;">Ground</td>
+                                <td style="padding:8px; text-align:left; color:#64748b; font-weight:bold;">Pin 20</td>
+                            </tr>
+                            <tr>
+                                <td style="padding:8px; text-align:right; color:#a78bfa; font-weight:bold;">Pin 29</td>
+                                <td style="padding:8px; text-align:right; color:#a78bfa;">GPIO 5</td>
+                                <td style="padding:8px; text-align:center; color:#e2e8f0;">L298 Driver IN3 (Neck Motor Dir 3)</td>
+                                <td style="padding:8px; text-align:left; color:#64748b;">Ground</td>
+                                <td style="padding:8px; text-align:left; color:#64748b; font-weight:bold;">Pin 30</td>
+                            </tr>
+                            <tr>
+                                <td style="padding:8px; text-align:right; color:#a78bfa; font-weight:bold;">Pin 31</td>
+                                <td style="padding:8px; text-align:right; color:#a78bfa;">GPIO 6</td>
+                                <td style="padding:8px; text-align:center; color:#e2e8f0;">L298 Driver IN4 (Neck Motor Dir 4)</td>
+                                <td style="padding:8px; text-align:left; color:#64748b;">Ground</td>
+                                <td style="padding:8px; text-align:left; color:#64748b; font-weight:bold;">Pin 34</td>
+                            </tr>
+                        </tbody>
+                    </table>
+                </div>
+            </div>
+
             <!-- Print Footer Notice -->
             <div class="print-doc-footer">
                 <p>6-DOF Robotic Arm Control Workbench • Electrical Wiring & Pinout Guide • Confidential / Engineering Reference</p>
