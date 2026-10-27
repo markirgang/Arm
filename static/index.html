@@ -312,9 +312,20 @@
             <div class="form-group">
                 <label class="form-label">Microphone Input</label>
                 <select id="selectMic" class="form-select">
-                    <option value="emeet_pixy" selected>eMeet Pixy USB Microphone</option>
+                    <option value="browser" selected>🌐 Remote Computer / Browser Microphone (Client Web Mic)</option>
+                    <option value="default">🎙️ Raspberry Pi Local Server Microphone (Default Mic)</option>
+                    <option value="emeet_pixy">eMeet Pixy USB Microphone</option>
                     <option value="usb_mic">USB Microphone (Generic)</option>
-                    <option value="default">System Default Microphone</option>
+                </select>
+            </div>
+
+            <div class="form-group">
+                <label class="form-label">Speaker Audio Output Target</label>
+                <select id="selectSpeaker" class="form-select">
+                    <option value="browser" selected>🌐 Remote Computer / Browser Audio (Client Web Audio)</option>
+                    <option value="default">🔊 Raspberry Pi Local Server Speaker (Default Audio)</option>
+                    <option value="usb_audio">USB Audio Output</option>
+                    <option value="audio_jack">3.5mm Analog Audio Jack</option>
                 </select>
             </div>
 
