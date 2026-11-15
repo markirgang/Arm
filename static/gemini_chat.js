@@ -272,7 +272,10 @@ const apiKeyBox = document.getElementById('apiKeyBox');
 
                     // Voice Activity Detection (VAD) Logic
                     if (this.isListening && !this.aiSpeaking) {
-                        if (volumePct > 12) {
+                        const speechThresh = Math.max(28, Math.round(50 - (this.micSensitivity / 100.0) * 22));
+                        if (volumePct >= speechThresh) {
+                            this.voicedFrames = (this.voicedFrames || 0) + 1;
+                            this.lastHeardVoiceAt = performance.now();
                             // User is actively speaking
                             this.speechDetected = true;
                             this.silenceStart = 0;
@@ -305,6 +308,8 @@ const apiKeyBox = document.getElementById('apiKeyBox');
 
     startAudioChunkRecording() {
         if (!this.micStream) return;
+        this.recordingStart = performance.now();
+        this.voicedFrames = 0;
         try {
             const mimeType = MediaRecorder.isTypeSupported('audio/webm') ? 'audio/webm' : 'audio/ogg';
             this.mediaRecorder = new MediaRecorder(this.micStream, { mimeType });
@@ -336,11 +341,17 @@ const apiKeyBox = document.getElementById('apiKeyBox');
         const statusText = document.getElementById('micStatusText');
         if (statusText) statusText.textContent = 'Status: ⏳ Transcribing voice with Gemini...';
 
+        const duration = this.recordingStart ? (performance.now() - this.recordingStart) : 0;
+        const voiced = this.voicedFrames || 0;
         this.mediaRecorder.onstop = () => {
             if (this.audioChunks.length > 0) {
                 const mimeType = MediaRecorder.isTypeSupported('audio/webm') ? 'audio/webm' : 'audio/ogg';
                 const blob = new Blob(this.audioChunks, { type: mimeType });
-                this.sendVoiceBlobToGemini(blob, mimeType);
+                if (blob.size >= 6500 && duration >= 700 && voiced >= 4) {
+                    this.sendVoiceBlobToGemini(blob, mimeType);
+                } else if (this.isListening) {
+                    if (statusText) statusText.textContent = 'Status: Listening for speech input...';
+                }
             }
         };
 
