@@ -287,7 +287,7 @@ const apiKeyBox = document.getElementById('apiKeyBox');
                             // User paused or stopped speaking
                             if (this.silenceStart === 0) {
                                 this.silenceStart = performance.now();
-                            } else if (performance.now() - this.silenceStart > 900) { // 900ms silence threshold
+                            } else if (performance.now() - this.silenceStart > 2000) { // 2000ms silence threshold
                                 // Process recorded voice input
                                 this.stopAudioChunkRecordingAndSend();
                             }
