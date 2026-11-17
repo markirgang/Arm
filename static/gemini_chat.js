@@ -287,7 +287,7 @@ const apiKeyBox = document.getElementById('apiKeyBox');
                             // User paused or stopped speaking
                             if (this.silenceStart === 0) {
                                 this.silenceStart = performance.now();
-                            } else if (performance.now() - this.silenceStart > 2000) { // 2000ms silence threshold
+                            } else if (performance.now() - this.silenceStart > 600) { // 2000ms silence threshold
                                 // Process recorded voice input
                                 this.stopAudioChunkRecordingAndSend();
                             }
@@ -347,7 +347,7 @@ const apiKeyBox = document.getElementById('apiKeyBox');
             if (this.audioChunks.length > 0) {
                 const mimeType = MediaRecorder.isTypeSupported('audio/webm') ? 'audio/webm' : 'audio/ogg';
                 const blob = new Blob(this.audioChunks, { type: mimeType });
-                if (blob.size >= 6500 && duration >= 700 && voiced >= 4) {
+                if (blob.size >= 4000 && duration >= 400 && voiced >= 2) {
                     this.sendVoiceBlobToGemini(blob, mimeType);
                 } else if (this.isListening) {
                     if (statusText) statusText.textContent = 'Status: Listening for speech input...';
@@ -377,7 +377,18 @@ const apiKeyBox = document.getElementById('apiKeyBox');
             })
             .then(res => res.json())
             .then(data => {
-                const transcribed = data.transcription || 'Spoken Voice Input';
+                const transcribed = (data.transcription || '').trim();
+                const hasTrigger = window.AudioHardware ? window.AudioHardware.containsTriggerName(transcribed) : true;
+                const projName = window.AudioHardware ? window.AudioHardware.getProjectName() : 'robot';
+                if (this.isListening && !hasTrigger && transcribed.length > 0) {
+                    console.log(`[Voice] Ignored speech without trigger name '${projName}': "${transcribed}"`);
+                    const statusText = document.getElementById('micStatusText');
+                    if (statusText && this.isListening) {
+                        statusText.textContent = `Status: Heard "${transcribed}" — waiting for "${projName}" anywhere in sentence.`;
+                    }
+                    return;
+                }
+                const _dummyTranscribed =  'Spoken Voice Input';
                 const reply = data.text || 'No response from Gemini Voice Engine.';
 
                 // Live populate text box with exact transcribed words!
@@ -613,7 +624,8 @@ const apiKeyBox = document.getElementById('apiKeyBox');
 
         // 2. Preset AI Neural Voices (Male & Female Accents) via Server
         const encodedText = encodeURIComponent(cleanText);
-        const encodedVoice = encodeURIComponent(selectedVoiceVal);
+        const voiceVal = (window.AudioHardware ? window.AudioHardware.getVoicePreset() : selectedVoiceVal) || selectedVoiceVal || 'ai_female_us';
+        const encodedVoice = encodeURIComponent(voiceVal);
         this.audioPlayer.src = `/api/tts/speak?text=${encodedText}&voice=${encodedVoice}`;
         this.audioPlayer.play().catch(err => {
             if (this.synth) {
