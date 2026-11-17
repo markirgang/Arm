@@ -12,7 +12,7 @@ class GeminiAIController {
         this.apiKey = localStorage.getItem('GEMINI_API_KEY') || DEFAULT_GEMINI_KEY;
         this.micSensitivity = parseFloat(localStorage.getItem('MIC_SENSITIVITY')) || 100;
         this.isListening = false;
-        this.aiSpeaking = false;
+        this.aiSpeaking = false; if (window.AudioHardware) window.AudioHardware.setAiSpeaking(false);
         this.gestureActive = true;
         
         this.audioContext = null;
@@ -287,7 +287,7 @@ const apiKeyBox = document.getElementById('apiKeyBox');
                             // User paused or stopped speaking
                             if (this.silenceStart === 0) {
                                 this.silenceStart = performance.now();
-                            } else if (performance.now() - this.silenceStart > 600) { // 2000ms silence threshold
+                            } else if (performance.now() - this.silenceStart > 380) { // 2000ms silence threshold
                                 // Process recorded voice input
                                 this.stopAudioChunkRecordingAndSend();
                             }
@@ -347,7 +347,7 @@ const apiKeyBox = document.getElementById('apiKeyBox');
             if (this.audioChunks.length > 0) {
                 const mimeType = MediaRecorder.isTypeSupported('audio/webm') ? 'audio/webm' : 'audio/ogg';
                 const blob = new Blob(this.audioChunks, { type: mimeType });
-                if (blob.size >= 4000 && duration >= 400 && voiced >= 2) {
+                if (blob.size >= 2500 && duration >= 300 && voiced >= 2) {
                     this.sendVoiceBlobToGemini(blob, mimeType);
                 } else if (this.isListening) {
                     if (statusText) statusText.textContent = 'Status: Listening for speech input...';
@@ -489,7 +489,7 @@ const apiKeyBox = document.getElementById('apiKeyBox');
         };
 
         this.audioPlayer.onplay = () => {
-            this.aiSpeaking = true;
+            this.aiSpeaking = true; if (window.AudioHardware) window.AudioHardware.setAiSpeaking(true);
             if (speakerAudioCtx && speakerAudioCtx.state === 'suspended') {
                 speakerAudioCtx.resume();
             }
@@ -497,13 +497,13 @@ const apiKeyBox = document.getElementById('apiKeyBox');
         };
 
         this.audioPlayer.onpause = () => {
-            this.aiSpeaking = false;
+            this.aiSpeaking = false; if (window.AudioHardware) window.AudioHardware.setAiSpeaking(false);
             if (this.app.setMouthEnergized) this.app.setMouthEnergized(false);
             if (this.app.setNeckPulsating) this.app.setNeckPulsating(false);
         };
 
         this.audioPlayer.onended = () => {
-            this.aiSpeaking = false;
+            this.aiSpeaking = false; if (window.AudioHardware) window.AudioHardware.setAiSpeaking(false);
             if (this.app.setMouthEnergized) this.app.setMouthEnergized(false);
             if (this.app.setNeckPulsating) this.app.setNeckPulsating(false);
 
@@ -515,7 +515,7 @@ const apiKeyBox = document.getElementById('apiKeyBox');
         };
 
         this.audioPlayer.onerror = () => {
-            this.aiSpeaking = false;
+            this.aiSpeaking = false; if (window.AudioHardware) window.AudioHardware.setAiSpeaking(false);
             if (this.app.setMouthEnergized) this.app.setMouthEnergized(false);
             if (this.app.setNeckPulsating) this.app.setNeckPulsating(false);
         };
@@ -538,7 +538,7 @@ const apiKeyBox = document.getElementById('apiKeyBox');
             { id: 'ai_male_in', label: '♂️ AI Voice - Male (Indian English Accent)' },
             { id: 'ai_male_za', label: '♂️ AI Voice - Male (South African Accent)' },
             { id: 'ai_male_ca', label: '♂️ AI Voice - Male (Canadian Accent)' },
-            { id: 'ai_female_us', label: '♀️ AI Voice - Female (US Accent)' },
+            { id: 'ai_butler_uk', label: '♀️ AI Voice - Female (US Accent)' },
             { id: 'ai_female_uk', label: '♀️ AI Voice - Female (British Accent)' },
             { id: 'ai_female_au', label: '♀️ AI Voice - Female (Australian Accent)' },
             { id: 'ai_female_ca', label: '♀️ AI Voice - Female (Canadian Accent)' },
@@ -588,7 +588,7 @@ const apiKeyBox = document.getElementById('apiKeyBox');
         if (!cleanText) return;
 
         const voiceSelect = document.getElementById('selectVoice');
-        const selectedVoiceVal = voiceSelect ? voiceSelect.value : 'ai_female_us';
+        const selectedVoiceVal = voiceSelect ? voiceSelect.value : 'ai_butler_uk';
 
         // 1. If a system browser voice is selected
         if (selectedVoiceVal.startsWith('sys_') && this.synth) {
@@ -606,13 +606,13 @@ const apiKeyBox = document.getElementById('apiKeyBox');
                 utterance.pitch = 1.0;
 
                 utterance.onstart = () => {
-                    this.aiSpeaking = true;
+                    this.aiSpeaking = true; if (window.AudioHardware) window.AudioHardware.setAiSpeaking(true);
                     if (this.app.setMouthEnergized) this.app.setMouthEnergized(true);
                     if (this.app.setNeckPulsating) this.app.setNeckPulsating(true);
                 };
 
                 utterance.onend = () => {
-                    this.aiSpeaking = false;
+                    this.aiSpeaking = false; if (window.AudioHardware) window.AudioHardware.setAiSpeaking(false);
                     if (this.app.setMouthEnergized) this.app.setMouthEnergized(false);
                     if (this.app.setNeckPulsating) this.app.setNeckPulsating(false);
                 };
@@ -624,7 +624,7 @@ const apiKeyBox = document.getElementById('apiKeyBox');
 
         // 2. Preset AI Neural Voices (Male & Female Accents) via Server
         const encodedText = encodeURIComponent(cleanText);
-        const voiceVal = (window.AudioHardware ? window.AudioHardware.getVoicePreset() : selectedVoiceVal) || selectedVoiceVal || 'ai_female_us';
+        const voiceVal = (window.AudioHardware ? window.AudioHardware.getVoicePreset() : selectedVoiceVal) || selectedVoiceVal || 'ai_butler_uk';
         const encodedVoice = encodeURIComponent(voiceVal);
         this.audioPlayer.src = `/api/tts/speak?text=${encodedText}&voice=${encodedVoice}`;
         this.audioPlayer.play().catch(err => {
